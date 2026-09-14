@@ -28,13 +28,13 @@ df = df.rename(columns={"Label_y": "Label"})
 #Drop unused columns
 df = df.drop(columns=["Label_x", "Type"])
 
-#Split into features (X) and labels (y)
-X = df.drop("Label", axis=1)
-y = df["Label"]
-
 #Convert string labels to integers as SHAP takes integers
 label_map = {"Normal": 0, "Anomaly": 1}
 df["Label"] = df["Label"].map(label_map)
+
+#Split into features (X) and labels (y)
+X = df.drop("Label", axis=1)
+y = df["Label"]
 
 #Training and testing data split
 X_train, X_test, y_train, y_test = train_test_split(
@@ -57,9 +57,12 @@ y_pred = model.predict(X_test)
 explainer = shap.TreeExplainer(model)
 shap_values = explainer.shap_values(X_test)
 
-#anomaly
+#Anomaly
 shap_anomaly = shap_values[1]
-shap_anomaly = shap_anomaly[:, :X_test.shape[1]]
+
+#Safety check
+print("SHAP:", shap_anomaly.shape)
+print("X_test:", X_test.shape)
 
 #Global feature importance (for anomaly class)
 plt.figure(figsize=(10, 6))
