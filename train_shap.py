@@ -16,21 +16,21 @@ labels = pd.read_csv("HDFS_v1/preprocessed/anomaly_label.csv")
 assert "BlockId" in events.columns
 assert "BlockId" in labels.columns
 
+#Convert string labels to integers as SHAP takes integers
+label_map = {"Normal": 0, "Anomaly": 1}
+labels["Label"] = labels["Label"].map(label_map)
+
 #Merge features and labels
 df = events.merge(labels, on="BlockId")
 
+#test
+print("MERGED COLUMNS:", df.columns.tolist())
+
 #Drop BlockId that are not useful for ML
-df = df.drop(columns=["BlockId"])
+df = df.drop(columns=["BlockId", "Label_x", "Type"])
 
 #Use Label_y as the correct label column
 df = df.rename(columns={"Label_y": "Label"})
-
-#Drop unused columns
-df = df.drop(columns=["Label_x", "Type"])
-
-#Convert string labels to integers as SHAP takes integers
-label_map = {"Normal": 0, "Anomaly": 1}
-df["Label"] = df["Label"].map(label_map)
 
 #Split into features (X) and labels (y)
 X = df.drop("Label", axis=1)
@@ -40,6 +40,10 @@ y = df["Label"]
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
+
+#test
+print("Unique y_train:", y_train.unique())
+print("Unique y_test:", y_test.unique())
 
 #Training baseline model
 model = RandomForestClassifier(
@@ -53,12 +57,17 @@ model.fit(X_train, y_train)
 #Predictions
 y_pred = model.predict(X_test)
 
-#Use training data as background for SHAP
-explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_test)
+#Sampling 500 rows for quicker result
+X_shap = X_test.sample(500, random_state=42)
 
-#Anomaly
-shap_anomaly = shap_values[1]
+#Use training data as background for SHAP
+explainer = shap.Explainer(model, X_train)
+shap_values = explainer(X_test)
+
+print("RAW SHAP VALUES SHAPE:", shap_values.values.shape)
+
+# anomaly class = index 1
+shap_anomaly = shap_values.values[:, :, 1]
 
 #Safety check
 print("SHAP:", shap_anomaly.shape)
@@ -72,11 +81,11 @@ plt.savefig("results/shap_global_summary_anomaly.png")
 plt.close()
 
 #Local explaination for a single anomaly sample
-idx = y_test[y_test == 1].index[0]
+idx = X_shap.index[0]
 shap.force_plot(
     explainer.expected_value[1],
-    shap_values[1][X_test.index.get_loc(idx)],
-    X_test.iloc[X_test.index.get_loc(idx)],
+    shap_anomaly[0],
+    X_shap.iloc[0],
     matplotlib=True
 )
 plt.savefig("results/shap_local_anomaly_example.png")
