@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import shap
+import lime
+from lime.lime_tabular import LimeTabularExplainer
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -57,6 +59,16 @@ model.fit(X_train, y_train)
 #Predictions
 y_pred = model.predict(X_test)
 
+#Prepare LIME explainer
+explainer_lime = LimeTabularExplainer(
+    X_train.values,
+    feature_names=X_train.columns.tolist(),
+    class_names=["Normal", "Anomaly"],
+    discretize_continuous=True,
+    mode="classification"
+
+)
+
 #Sampling 500 rows for quicker result
 X_shap = X_test.sample(500, random_state=42)
 
@@ -66,7 +78,7 @@ shap_values = explainer(X_test)
 
 print("RAW SHAP VALUES SHAPE:", shap_values.values.shape)
 
-# anomaly class = index 1
+#Anomaly class = index 1
 shap_anomaly = shap_values.values[:, :, 1]
 
 #Safety check
@@ -79,6 +91,21 @@ shap.summary_plot(shap_anomaly, X_test, show=False)
 plt.tight_layout()
 plt.savefig("results/shap_global_summary_anomaly.png")
 plt.close()
+
+#Pick one anomaly sample for LIME
+anomaly_idx = y_test[y_test == 1].index[0]
+instance = X_test.loc[anomaly_idx].values
+
+#Generate LIME explanation
+exp = explainer_lime.explain_instance(
+    instance,
+    model.predict_proba,
+    num_features = 10
+)
+with open("results/lime_local_anomaly_example.txt", "w") as f:  #Save text version
+    for feature, weight in exp.as_list():
+        f.write(f"{feature}: {weight}\n")
+exp.save_to_file("results/lime_local_anomaly_example.html")  #Save interactive HTML version
 
 #Local explaination for a single anomaly sample
 idx = X_shap.index[0]
