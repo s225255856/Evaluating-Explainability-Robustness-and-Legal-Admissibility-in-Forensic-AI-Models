@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
@@ -14,17 +15,18 @@ labels = pd.read_csv("HDFS_v1/preprocessed/anomaly_label.csv")
 assert "BlockId" in events.columns
 assert "BlockId" in labels.columns
 
+#Convert string labels to integers as SHAP takes integers
+label_map = {"Normal": 0, "Anomaly": 1}
+labels["Label"] = labels["Label"].map(label_map)
+
 #Merge features and labels
 df = events.merge(labels, on="BlockId")
 
 #Drop BlockId that are not useful for ML
-df = df.drop(columns=["BlockId"])
+df = df.drop(columns=["BlockId", "Label_x", "Type"])
 
 #Use Label_y as the correct label column
 df = df.rename(columns={"Label_y": "Label"})
-
-#Drop unused columns
-df = df.drop(columns=["Label_x", "Type"])
 
 #Split into features (X) and labels (y)
 X = df.drop("Label", axis=1)
@@ -43,6 +45,9 @@ model = RandomForestClassifier(
     n_jobs=-1
 )
 model.fit(X_train, y_train)
+
+#Save the model
+joblib.dump(model, "models/baseline_model.pkl")
 
 #Predictions
 y_pred = model.predict(X_test)

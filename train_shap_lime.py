@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import joblib
 import shap
 import lime
 from lime.lime_tabular import LimeTabularExplainer
@@ -48,13 +49,7 @@ print("Unique y_train:", y_train.unique())
 print("Unique y_test:", y_test.unique())
 
 #Training baseline model
-model = RandomForestClassifier(
-    n_estimators=100, 
-    max_depth=None,
-    random_state=42,
-    n_jobs=-1
-)
-model.fit(X_train, y_train)
+model = joblib.load("models/baseline_model.pkl")
 
 #Predictions
 y_pred = model.predict(X_test)
