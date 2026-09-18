@@ -1,28 +1,48 @@
 import pandas as pd
-import re
+from sklearn.model_selection import train_test_split
 
-#Load the raw HDFS logs
-df =  pd.read_csv("HDFS_2k.log_structured.csv") 
+def load_and_preprocess():
+    #Load preprocessed HDFS event occurence matrix
+    events = pd.read_csv("HDFS_v1/preprocessed/Event_occurrence_matrix.csv")
 
-#Extract BlockId from Content column using regex
-df["BlockId"] = df["Content"].str.extract(r'(blk_[0-9\-]+)')
+    #Load anomaly labels
+    labels = pd.read_csv("HDFS_v1/preprocessed/anomaly_label.csv")
 
-#Drop rows without a block ID as they cannot be grouped 
-df = df.dropna(subset=["BlockId"])
+    #Ensure BlockId column name's match
+    assert "BlockId" in events.columns
+    assert "BlockId" in labels.columns
 
-#Keep the column needed
-df = df[["BlockId", "EventId"]]
+    #Convert string labels to integers as SHAP takes integers
+    label_map = {"Normal": 0, "Anomaly": 1}
+    labels["Label"] = labels["Label"].map(label_map)
 
-#Count EventId occurrences per BlockId
-event_counts = df.groupby("BlockId")["EventId"].value_counts().unstack().fillna(0)
+    #Merge features and labels
+    df = events.merge(labels, on="BlockId")
 
-#Handle missing values
-df = df.fillna(0)
+    #Drop BlockId that are not useful for ML
+    df = df.drop(columns=["BlockId", "Label_x", "Type"])
 
-#Convert labels to numeric
-if df["label"].dtype == "object":
-    df["label"] = df["label"].map({"Normal": 0, "Anomaly":1})
+    #Use Label_y as the correct label column
+    df = df.rename(columns={"Label_y": "Label"})
 
-#Separate features and labels
-X = df.drop("label", axis=1)
-y = df["label"]
+    #Split into features (X) and labels (y)
+    X = df.drop("Label", axis=1)
+    y = df["Label"]
+
+    #Training and testing data split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    return X_train, X_test, y_train, y_test
+        
+def save_splits():
+    #Save train/test splits to CSV so other scripts can load them quickly
+    X_train, X_test, y_train, y_test = load_and_preprocess()
+
+    X_train.to_csv("preprocessed2/X_train.csv")
+    X_test.to_csv("preprocessed2/X_test.csv")
+    y_train.to_csv("preprocessed2/y_train.csv")
+    y_test.to_csv("preprocessed2/y_test.csv")
+
+    print("Saved X_train, X_test, y_train, y_test to CSV.")
+        
