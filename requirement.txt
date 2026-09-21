@@ -1,0 +1,9 @@
+adversarial-robustness-toolbox==1.20.1
+joblib==1.6.0
+lime==0.2.0.1
+matplotlib==3.11.1
+numpy==2.5.3
+pandas==3.0.5
+scikit-learn==1.9.0
+shap==0.52.0
+torch==2.14.0
