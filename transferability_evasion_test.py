@@ -68,7 +68,7 @@ sub_adv_acc = accuracy_score(y_test_np, np.argmax(sub_clf.predict(X_adv_sub), ax
 print("Subtitute adversarial accuracy:", sub_adv_acc)
 
 #Evaluate after transfering to RandomForest
-X_adv_df = pd.DataFrame(X_adv_sub, columns=X_test.columns)
+X_adv_df = pd.DataFrame(X_adv_sub, columns=X_test.columns) #Transfer
 rf_adv_acc = accuracy_score(y_test_np, rf.predict(X_adv_df))
 print("RandomForest accuracy after the transfer:", rf_adv_acc)
 print("RandomForest robustness drop:", rf_clean_acc - rf_adv_acc)
